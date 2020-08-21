@@ -38,4 +38,4 @@ RUN apk add --no-cache freetype libpng libjpeg-turbo freetype-dev libpng-dev lib
   docker-php-ext-install -j${NPROC} gd && \
   apk del --no-cache freetype-dev libpng-dev libjpeg-turbo-dev
 
-COPY ./php.ini /usr/local/etc/php  
+COPY ./php.ini /usr/local/etc/php
