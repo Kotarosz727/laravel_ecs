@@ -2,8 +2,9 @@ version: '3'
 services:
   web:
     image: nginx:1.15.6
+    container_name: web-server
     ports:
-      - "9000:80"
+      - "12121:80"
     depends_on:
       - app
     volumes:
@@ -11,5 +12,7 @@ services:
       - ./app:/var/www/html
   app:
     build: ./docker/php
+    container_name: php-app
     volumes:
       - .:/var/www/html
+      

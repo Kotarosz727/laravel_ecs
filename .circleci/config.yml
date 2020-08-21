@@ -1,45 +1,50 @@
-
 version: 2
 jobs:
-  build:
+  build: # テストを行うworkflow
     docker:
-      # Specify the version you desire here
-      - image: circleci/php:7.1-node-browsers
+      - image: circleci/php:7.3.9-fpm
+      - image: circleci/mysql:8.0
+        command: mysqld --default-authentication-plugin=mysql_native_password
+        envirionment: # MySQLの初期設定
+          - APP_DEBUG: true
+          - APP_ENV: circle
+          - DB_CONNECTION: circle_test
+          - MYSQL_ALLOW_EMPTY_PASSWORD: true
 
-    # steps:
-    #   - checkout
+    working_directory: ~/repo
 
-    #   - run: sudo apt update # PHP CircleCI 2.0 Configuration File# PHP CircleCI 2.0 Configuration File sudo apt install zlib1g-dev libsqlite3-dev
-    #   - run: sudo docker-php-ext-install zip
+    steps:
+      - checkout
 
-    #   # Download and cache dependencies
-    #   - restore_cache:
-    #       keys:
-    #         # "composer.lock" can be used if it is committed to the repo
-    #         - v1-dependencies-{{ checksum "composer.json" }}
-    #         # fallback to using the latest cache if no exact match is found
-    #         - v1-dependencies-
+      - run:
+          name: test_setup # テストを行うために必要なライブラリなどのインストール
+          command: |
+            sudo apt-get update && sudo apt-get install -y libpng-dev libjpeg-dev |
+            sudo docker-php-ext-configure gd --with-png-dir=/usr/include --with-jpeg-dir=/usr/include |
+            sudo docker-php-ext-install pdo_mysql gd
 
-      - run: composer install -n --prefer-dist
+      - restore_cache: # composer.jsonのキャッシュがあれば利用
+          keys:
+          - v1-dependencies-{{ checksum "composer.json" }}
+          - v1-dependencies-
 
-      - save_cache:
-          key: v1-dependencies-{{ checksum "composer.json" }}
+      - run:
+          name: composer install
+          command: composer install -n --prefer-dist
+
+      - save_cache: # composer.jsonをキャッシュ
           paths:
             - ./vendor
-      - restore_cache:
-          keys:
-            - node-v1-{{ checksum "package.json" }}
-            - node-v1-
-      - run: yarn install
-      - save_cache:
-          key: node-v1-{{ checksum "package.json" }}
-          paths:
-            - node_modules
+          key: v1-dependencies-{{ checksum "composer.json" }}
 
-      # prepare the database
-      - run: touch storage/testing.sqlite
-      - run: php artisan migrate --env=testing --database=sqlite_testing --force
+      - run:
+          name: migration
+          command: php artisan migrate --env=circle
 
-      #- run: ./vendor/bin/phpunit
-      - run: ./vendor/bin/codecept build
-      - run: ./vendor/bin/codecept run
+      - run: # envファイルをcircleci用のものに変更
+          name: env_copy
+          command: rm .env.testing && ln -s .env.circle .env.testing
+
+      - run:
+          name: test_run
+          command: ./vendor/bin/phpunit --testdox
